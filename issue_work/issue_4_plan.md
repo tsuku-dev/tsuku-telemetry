@@ -19,7 +19,7 @@ Follow the deploy workflow template in docs/DESIGN.md exactly. The workflow uses
 None
 
 ## Implementation Steps
-- [ ] Create `.github/workflows/deploy.yml` with wrangler-action
+- [x] Create `.github/workflows/deploy.yml` with wrangler-action
 
 ## Testing Strategy
 - Manual verification: Merge to main should trigger deployment
