@@ -10,3 +10,6 @@ dataset = "tsuku_telemetry"
 CF_ACCOUNT_ID = ""
 
 # CF_API_TOKEN should be set via wrangler secret
+
+# Custom domain: telemetry.tsuku.dev
+# Configured via Cloudflare Dashboard (Workers > tsuku-telemetry > Settings > Domains & Routes)
