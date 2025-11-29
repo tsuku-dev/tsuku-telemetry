@@ -1,7 +1,16 @@
-import { describe, it, expect } from "vitest";
-import { SELF } from "cloudflare:test";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { SELF, fetchMock } from "cloudflare:test";
 
 describe("tsuku-telemetry worker", () => {
+  beforeEach(() => {
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+  });
+
+  afterEach(() => {
+    fetchMock.deactivate();
+  });
+
   describe("CORS", () => {
     it("handles OPTIONS preflight requests", async () => {
       const response = await SELF.fetch("http://localhost/event", {
@@ -29,11 +38,278 @@ describe("tsuku-telemetry worker", () => {
   });
 
   describe("GET /stats", () => {
-    it("returns empty JSON", async () => {
+    it("returns aggregated statistics", async () => {
+      // Mock the Analytics Engine API responses
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { recipe: "nodejs", installs: 100, updates: 10 },
+              { recipe: "terraform", installs: 50, updates: 5 },
+            ],
+            meta: [],
+            rows: 2,
+          })
+        )
+        .times(1);
+
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { os: "linux", count: 100 },
+              { os: "darwin", count: 50 },
+            ],
+            meta: [],
+            rows: 2,
+          })
+        )
+        .times(1);
+
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { arch: "amd64", count: 120 },
+              { arch: "arm64", count: 30 },
+            ],
+            meta: [],
+            rows: 2,
+          })
+        )
+        .times(1);
+
       const response = await SELF.fetch("http://localhost/stats");
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("application/json");
-      expect(await response.json()).toEqual({});
+
+      const stats = (await response.json()) as {
+        generated_at: string;
+        period: string;
+        total_installs: number;
+        recipes: { name: string; installs: number; updates: number }[];
+        by_os: Record<string, number>;
+        by_arch: Record<string, number>;
+      };
+
+      expect(stats.generated_at).toBeDefined();
+      expect(stats.period).toBe("all_time");
+      expect(stats.total_installs).toBe(150);
+      expect(stats.recipes).toHaveLength(2);
+      expect(stats.recipes[0]).toEqual({
+        name: "nodejs",
+        installs: 100,
+        updates: 10,
+      });
+      expect(stats.by_os).toEqual({ linux: 100, darwin: 50 });
+      expect(stats.by_arch).toEqual({ amd64: 120, arm64: 30 });
+    });
+
+    it("filters out unknown OS and arch values", async () => {
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [{ recipe: "nodejs", installs: 10, updates: 1 }],
+            meta: [],
+            rows: 1,
+          })
+        )
+        .times(1);
+
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { os: "linux", count: 5 },
+              { os: "unknown", count: 3 },
+              { os: "", count: 2 },
+            ],
+            meta: [],
+            rows: 3,
+          })
+        )
+        .times(1);
+
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { arch: "amd64", count: 5 },
+              { arch: "unknown", count: 3 },
+              { arch: "", count: 2 },
+            ],
+            meta: [],
+            rows: 3,
+          })
+        )
+        .times(1);
+
+      const response = await SELF.fetch("http://localhost/stats");
+      expect(response.status).toBe(200);
+
+      const stats = (await response.json()) as {
+        by_os: Record<string, number>;
+        by_arch: Record<string, number>;
+      };
+
+      // Should only include linux, not unknown or empty
+      expect(stats.by_os).toEqual({ linux: 5 });
+      expect(stats.by_arch).toEqual({ amd64: 5 });
+    });
+
+    it("handles empty data from API", async () => {
+      // Test when API returns no data property (undefined)
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            meta: [],
+            rows: 0,
+          })
+        )
+        .times(3);
+
+      const response = await SELF.fetch("http://localhost/stats");
+      expect(response.status).toBe(200);
+
+      const stats = (await response.json()) as {
+        total_installs: number;
+        recipes: unknown[];
+        by_os: Record<string, number>;
+        by_arch: Record<string, number>;
+      };
+
+      expect(stats.total_installs).toBe(0);
+      expect(stats.recipes).toEqual([]);
+      expect(stats.by_os).toEqual({});
+      expect(stats.by_arch).toEqual({});
+    });
+
+    it("handles non-numeric values gracefully", async () => {
+      // Test when API returns non-numeric values that need || 0 fallback
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { recipe: "nodejs", installs: "not a number", updates: null },
+            ],
+            meta: [],
+            rows: 1,
+          })
+        )
+        .times(1);
+
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [{ os: "linux", count: undefined }],
+            meta: [],
+            rows: 1,
+          })
+        )
+        .times(1);
+
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [{ arch: "amd64", count: "invalid" }],
+            meta: [],
+            rows: 1,
+          })
+        )
+        .times(1);
+
+      const response = await SELF.fetch("http://localhost/stats");
+      expect(response.status).toBe(200);
+
+      const stats = (await response.json()) as {
+        total_installs: number;
+        recipes: { name: string; installs: number; updates: number }[];
+        by_os: Record<string, number>;
+        by_arch: Record<string, number>;
+      };
+
+      // Should default to 0 for non-numeric values
+      expect(stats.total_installs).toBe(0);
+      expect(stats.recipes[0].installs).toBe(0);
+      expect(stats.recipes[0].updates).toBe(0);
+      expect(stats.by_os.linux).toBe(0);
+      expect(stats.by_arch.amd64).toBe(0);
+    });
+
+    it("returns 500 on API error", async () => {
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(401, "Unauthorized");
+
+      const response = await SELF.fetch("http://localhost/stats");
+      expect(response.status).toBe(500);
+
+      const error = (await response.json()) as { error: string };
+      expect(error.error).toContain("Analytics Engine query failed");
     });
   });
 
