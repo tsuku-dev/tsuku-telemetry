@@ -15,15 +15,15 @@ Follow the implementation pattern from docs/DESIGN.md, adding the Env interface 
 - `wrangler.toml` - Add Analytics Engine binding
 
 ## Implementation Steps
-- [ ] Add Analytics Engine binding to wrangler.toml
-- [ ] Add Env interface and update worker signature in src/index.ts
-- [ ] Add CORS headers to all responses
-- [ ] Add OPTIONS handler for CORS preflight
-- [ ] Add event validation (require recipe and action fields)
-- [ ] Add Analytics Engine writeDataPoint call
-- [ ] Update tests for validation (400 for invalid events)
-- [ ] Add tests for CORS headers
-- [ ] Verify all tests pass
+- [x] Add Analytics Engine binding to wrangler.toml
+- [x] Add Env interface and update worker signature in src/index.ts
+- [x] Add CORS headers to all responses
+- [x] Add OPTIONS handler for CORS preflight
+- [x] Add event validation (require recipe and action fields)
+- [x] Add Analytics Engine writeDataPoint call
+- [x] Update tests for validation (400 for invalid events)
+- [x] Add tests for CORS headers
+- [x] Verify all tests pass
 
 ## Testing Strategy
 - Unit tests: Verify validation returns 400 for missing fields
@@ -35,13 +35,13 @@ Follow the implementation pattern from docs/DESIGN.md, adding the Env interface 
 - Analytics Engine API changes: Use types from @cloudflare/workers-types
 
 ## Success Criteria
-- [ ] POST /event validates required fields (recipe, action)
-- [ ] POST /event returns 400 for invalid JSON
-- [ ] POST /event returns 400 for missing required fields
-- [ ] All responses include CORS headers
-- [ ] OPTIONS requests handled for CORS preflight
-- [ ] wrangler.toml includes Analytics Engine binding
-- [ ] All tests pass
+- [x] POST /event validates required fields (recipe, action)
+- [x] POST /event returns 400 for invalid JSON
+- [x] POST /event returns 400 for missing required fields
+- [x] All responses include CORS headers
+- [x] OPTIONS requests handled for CORS preflight
+- [x] wrangler.toml includes Analytics Engine binding
+- [x] All tests pass
 
 ## Open Questions
 None - requirements are clear from issue and design doc.
