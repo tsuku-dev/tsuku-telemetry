@@ -47,6 +47,10 @@ npm run test:coverage
 npx wrangler deploy
 ```
 
+## Custom Domain
+
+The worker is available at `telemetry.tsuku.dev`. This is configured via the Cloudflare Dashboard under Workers > tsuku-telemetry > Settings > Domains & Routes.
+
 ## Related
 
 - [tsuku](https://github.com/tsuku-dev/tsuku) - CLI tool
