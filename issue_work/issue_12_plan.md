@@ -23,12 +23,12 @@ None
 
 ## Implementation Steps
 
-- [ ] Update Event Schema section with 13 blob positions
-- [ ] Add example events for all action types (install, update, remove, create, command)
-- [ ] Add Schema Versioning section
-- [ ] Update Stats Response Format to reflect new capabilities
-- [ ] Update Query Examples section
-- [ ] Add Validation Rules section
+- [x] Update Event Schema section with 13 blob positions
+- [x] Add example events for all action types (install, update, remove, create, command)
+- [x] Add Schema Versioning section
+- [x] Update Stats Response Format to reflect new capabilities
+- [x] Update Query Examples section
+- [x] Add Validation Rules section
 
 ## Testing Strategy
 
@@ -42,11 +42,11 @@ None
 
 ## Success Criteria
 
-- [ ] All 13 blob positions documented
-- [ ] Example events for each action type included
-- [ ] Schema versioning strategy documented
-- [ ] Query examples updated for new blob positions
-- [ ] CI passes
+- [x] All 13 blob positions documented
+- [x] Example events for each action type included
+- [x] Schema versioning strategy documented
+- [x] Query examples updated for new blob positions
+- [x] CI passes
 
 ## Open Questions
 
