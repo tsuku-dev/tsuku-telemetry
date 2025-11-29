@@ -16,13 +16,13 @@ Follow the structure defined in docs/DESIGN.md, implementing minimal stub endpoi
 - `src/index.ts` - Worker entrypoint with routing and stub endpoints
 
 ## Implementation Steps
-- [ ] Create package.json with required dependencies
-- [ ] Create tsconfig.json for TypeScript
-- [ ] Create wrangler.toml with basic configuration
-- [ ] Create src/index.ts with stub endpoints (POST /event, GET /stats, GET /health)
-- [ ] Verify npm install works
-- [ ] Verify npx wrangler dev runs locally
-- [ ] Test all three endpoints respond correctly
+- [x] Create package.json with required dependencies
+- [x] Create tsconfig.json for TypeScript
+- [x] Create wrangler.toml with basic configuration
+- [x] Create src/index.ts with stub endpoints (POST /event, GET /stats, GET /health)
+- [x] Verify npm install works
+- [x] Verify npx wrangler dev runs locally
+- [x] Test all three endpoints respond correctly
 
 ## Testing Strategy
 - Manual verification: Test endpoints with curl
@@ -34,11 +34,11 @@ Follow the structure defined in docs/DESIGN.md, implementing minimal stub endpoi
 - Wrangler version compatibility: Use current stable wrangler, specify compatibility_date in config
 
 ## Success Criteria
-- [ ] `npm install` completes without errors
-- [ ] `npx wrangler dev` starts local server
-- [ ] POST /event returns 200 OK
-- [ ] GET /stats returns empty JSON
-- [ ] GET /health returns "ok"
+- [x] `npm install` completes without errors
+- [x] `npx wrangler dev` starts local server
+- [x] POST /event returns 200 OK
+- [x] GET /stats returns empty JSON
+- [x] GET /health returns "ok"
 
 ## Open Questions
 None - requirements are clear from issue and design doc.
