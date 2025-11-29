@@ -179,7 +179,8 @@ async function queryAnalyticsEngine(
   );
 
   if (!response.ok) {
-    throw new Error(`Analytics Engine query failed: ${response.status}`);
+    const errorBody = await response.text();
+    throw new Error(`Analytics Engine query failed: ${response.status} - ${errorBody}`);
   }
 
   const result = (await response.json()) as AnalyticsResponse;
@@ -197,32 +198,32 @@ interface StatsResponse {
 
 async function getStats(env: Env): Promise<StatsResponse> {
   // Query for total installs and recipe breakdown
-  // New schema: blob0=action, blob1=recipe, blob5=os, blob6=arch
+  // Analytics Engine uses 1-indexed blobs: blob1=action, blob2=recipe, blob6=os, blob7=arch
   const recipeQuery = `
-    SELECT blob1 as recipe,
-           sum(if(blob0 = 'install', 1, 0)) as installs,
-           sum(if(blob0 = 'update', 1, 0)) as updates
+    SELECT blob2 as recipe,
+           sum(if(blob1 = 'install', 1, 0)) as installs,
+           sum(if(blob1 = 'update', 1, 0)) as updates
     FROM tsuku_telemetry
-    WHERE blob1 != ''
-    GROUP BY blob1
+    WHERE blob2 != ''
+    GROUP BY blob2
     ORDER BY installs DESC
     LIMIT 20
   `;
 
   // Query for OS breakdown
   const osQuery = `
-    SELECT blob5 as os, count() as count
+    SELECT blob6 as os, count() as count
     FROM tsuku_telemetry
-    WHERE blob0 = 'install'
-    GROUP BY blob5
+    WHERE blob1 = 'install'
+    GROUP BY blob6
   `;
 
   // Query for architecture breakdown
   const archQuery = `
-    SELECT blob6 as arch, count() as count
+    SELECT blob7 as arch, count() as count
     FROM tsuku_telemetry
-    WHERE blob0 = 'install'
-    GROUP BY blob6
+    WHERE blob1 = 'install'
+    GROUP BY blob7
   `;
 
   const [recipeData, osData, archData] = await Promise.all([

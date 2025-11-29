@@ -303,7 +303,8 @@ describe("tsuku-telemetry worker", () => {
           path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
           method: "POST",
         })
-        .reply(401, "Unauthorized");
+        .reply(401, "Unauthorized")
+        .times(3);
 
       const response = await SELF.fetch("http://localhost/stats");
       expect(response.status).toBe(500);
