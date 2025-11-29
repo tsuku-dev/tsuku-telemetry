@@ -7,7 +7,7 @@ binding = "ANALYTICS"
 dataset = "tsuku_telemetry"
 
 [vars]
-CF_ACCOUNT_ID = ""
+CF_ACCOUNT_ID = "3c4fa2269fc145e89553adc332dc9546"
 
 # CF_API_TOKEN should be set via wrangler secret
 
