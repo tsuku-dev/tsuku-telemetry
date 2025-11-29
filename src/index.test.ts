@@ -314,24 +314,32 @@ describe("tsuku-telemetry worker", () => {
   });
 
   describe("POST /event", () => {
-    it("returns ok for valid event", async () => {
+    it("returns ok for valid install event", async () => {
       const response = await SELF.fetch("http://localhost/event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipe: "test", action: "install" }),
+        body: JSON.stringify({
+          recipe: "test",
+          action: "install",
+          version_resolved: "1.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
       });
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("ok");
     });
 
-    it("returns ok with all optional fields", async () => {
+    it("returns ok for install with optional version_constraint", async () => {
       const response = await SELF.fetch("http://localhost/event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           recipe: "nodejs",
           action: "install",
-          version: "22.0.0",
+          version_constraint: "@LTS",
+          version_resolved: "22.0.0",
           os: "linux",
           arch: "amd64",
           tsuku_version: "0.3.0",
@@ -395,6 +403,9 @@ describe("tsuku-telemetry worker", () => {
           action: "update",
           version_resolved: "22.1.0",
           version_previous: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
         }),
       });
       expect(response.status).toBe(200);
@@ -409,6 +420,9 @@ describe("tsuku-telemetry worker", () => {
           recipe: "nodejs",
           action: "remove",
           version_previous: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
         }),
       });
       expect(response.status).toBe(200);
@@ -424,6 +438,7 @@ describe("tsuku-telemetry worker", () => {
           template: "github_release",
           os: "linux",
           arch: "amd64",
+          tsuku_version: "0.3.0",
         }),
       });
       expect(response.status).toBe(200);
@@ -452,6 +467,7 @@ describe("tsuku-telemetry worker", () => {
           flags: "--json",
           os: "linux",
           arch: "amd64",
+          tsuku_version: "0.3.0",
         }),
       });
       expect(response.status).toBe(200);
@@ -465,9 +481,12 @@ describe("tsuku-telemetry worker", () => {
         body: JSON.stringify({
           action: "command",
           os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
         }),
       });
       expect(response.status).toBe(400);
+      expect(await response.text()).toContain("command field is required");
     });
 
     it("returns ok for install with enhanced fields", async () => {
@@ -487,6 +506,305 @@ describe("tsuku-telemetry worker", () => {
       });
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("ok");
+    });
+
+    // Validation: missing required common fields
+    it("returns 400 for missing os", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "install",
+          version_resolved: "22.0.0",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("os is required");
+    });
+
+    it("returns 400 for missing arch", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "install",
+          version_resolved: "22.0.0",
+          os: "linux",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("arch is required");
+    });
+
+    it("returns 400 for missing tsuku_version", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "install",
+          version_resolved: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("tsuku_version is required");
+    });
+
+    // Validation: install action - missing required fields
+    it("returns 400 for install without version_resolved", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "install",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("version_resolved is required");
+    });
+
+    // Validation: install action - must-be-empty violations
+    it("returns 400 for install with command field", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "install",
+          version_resolved: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+          command: "list",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("command must be empty");
+    });
+
+    it("returns 400 for install with template field", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "install",
+          version_resolved: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+          template: "github_release",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("template must be empty");
+    });
+
+    // Validation: update action - missing required fields
+    it("returns 400 for update without version_previous", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "update",
+          version_resolved: "22.1.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("version_previous is required");
+    });
+
+    // Validation: update action - must-be-empty violations
+    it("returns 400 for update with is_dependency", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "update",
+          version_resolved: "22.1.0",
+          version_previous: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+          is_dependency: true,
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("is_dependency must be empty");
+    });
+
+    // Validation: remove action - must-be-empty violations
+    it("returns 400 for remove with version_resolved", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "remove",
+          version_resolved: "22.0.0",
+          version_previous: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("version_resolved must be empty");
+    });
+
+    // Validation: create action - must-be-empty violations
+    it("returns 400 for create with recipe", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          template: "github_release",
+          recipe: "my-tool",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("recipe must be empty");
+    });
+
+    // Validation: command action - must-be-empty violations
+    it("returns 400 for command with recipe", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "command",
+          command: "list",
+          recipe: "nodejs",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("recipe must be empty");
+    });
+
+    it("returns 400 for command with template", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "command",
+          command: "list",
+          template: "github_release",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("template must be empty");
+    });
+
+    it("returns 400 for command with is_dependency", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "command",
+          command: "list",
+          is_dependency: true,
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("is_dependency must be empty");
+    });
+
+    // Additional validation tests for full coverage
+    it("returns 400 for update without version_resolved", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "update",
+          version_previous: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("version_resolved is required");
+    });
+
+    it("returns 400 for remove without version_previous", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "remove",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("version_previous is required");
+    });
+
+    it("returns 400 for remove with is_dependency", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "remove",
+          version_previous: "22.0.0",
+          is_dependency: true,
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("is_dependency must be empty");
+    });
+
+    it("returns 400 for create with is_dependency", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          template: "github_release",
+          is_dependency: false,
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain("is_dependency must be empty");
     });
   });
 

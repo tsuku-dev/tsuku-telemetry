@@ -8,6 +8,144 @@ const SCHEMA_VERSION = "1";
 
 type ActionType = "install" | "update" | "remove" | "create" | "command";
 
+interface TelemetryEvent {
+  action: ActionType;
+  recipe?: string;
+  version_constraint?: string;
+  version_resolved?: string;
+  version_previous?: string;
+  os?: string;
+  arch?: string;
+  tsuku_version?: string;
+  is_dependency?: boolean;
+  command?: string;
+  flags?: string;
+  template?: string;
+}
+
+function validateEvent(event: TelemetryEvent): string | null {
+  const { action } = event;
+
+  // Helper to check if a string field is set
+  const hasString = (value: unknown): boolean =>
+    typeof value === "string" && value !== "";
+
+  // Helper to check if a field should be empty
+  const mustBeEmpty = (field: string, value: unknown): string | null => {
+    if (value !== undefined && value !== "" && value !== null) {
+      return `${field} must be empty for ${action} action`;
+    }
+    return null;
+  };
+
+  // Common required fields for all actions
+  if (!hasString(event.os)) {
+    return "os is required";
+  }
+  if (!hasString(event.arch)) {
+    return "arch is required";
+  }
+  if (!hasString(event.tsuku_version)) {
+    return "tsuku_version is required";
+  }
+
+  switch (action) {
+    case "install": {
+      // Required: recipe, version_resolved
+      if (!hasString(event.recipe)) return "recipe is required for install";
+      if (!hasString(event.version_resolved))
+        return "version_resolved is required for install";
+      // Must be empty: command, flags, template
+      let err = mustBeEmpty("command", event.command);
+      if (err) return err;
+      err = mustBeEmpty("flags", event.flags);
+      if (err) return err;
+      err = mustBeEmpty("template", event.template);
+      if (err) return err;
+      break;
+    }
+    case "update": {
+      // Required: recipe, version_resolved, version_previous
+      if (!hasString(event.recipe)) return "recipe is required for update";
+      if (!hasString(event.version_resolved))
+        return "version_resolved is required for update";
+      if (!hasString(event.version_previous))
+        return "version_previous is required for update";
+      // Must be empty: is_dependency, command, flags, template
+      if (event.is_dependency !== undefined)
+        return "is_dependency must be empty for update action";
+      let err = mustBeEmpty("command", event.command);
+      if (err) return err;
+      err = mustBeEmpty("flags", event.flags);
+      if (err) return err;
+      err = mustBeEmpty("template", event.template);
+      if (err) return err;
+      break;
+    }
+    case "remove": {
+      // Required: recipe, version_previous
+      if (!hasString(event.recipe)) return "recipe is required for remove";
+      if (!hasString(event.version_previous))
+        return "version_previous is required for remove";
+      // Must be empty: version_constraint, version_resolved, is_dependency, command, flags, template
+      let err = mustBeEmpty("version_constraint", event.version_constraint);
+      if (err) return err;
+      err = mustBeEmpty("version_resolved", event.version_resolved);
+      if (err) return err;
+      if (event.is_dependency !== undefined)
+        return "is_dependency must be empty for remove action";
+      err = mustBeEmpty("command", event.command);
+      if (err) return err;
+      err = mustBeEmpty("flags", event.flags);
+      if (err) return err;
+      err = mustBeEmpty("template", event.template);
+      if (err) return err;
+      break;
+    }
+    case "create": {
+      // Required: template
+      if (!hasString(event.template)) return "template is required for create";
+      // Must be empty: recipe, version_*, is_dependency, command, flags
+      let err = mustBeEmpty("recipe", event.recipe);
+      if (err) return err;
+      err = mustBeEmpty("version_constraint", event.version_constraint);
+      if (err) return err;
+      err = mustBeEmpty("version_resolved", event.version_resolved);
+      if (err) return err;
+      err = mustBeEmpty("version_previous", event.version_previous);
+      if (err) return err;
+      if (event.is_dependency !== undefined)
+        return "is_dependency must be empty for create action";
+      err = mustBeEmpty("command", event.command);
+      if (err) return err;
+      err = mustBeEmpty("flags", event.flags);
+      if (err) return err;
+      break;
+    }
+    case "command": {
+      // Required: command
+      if (!hasString(event.command))
+        return "command field is required for command action";
+      // Must be empty: recipe, version_*, is_dependency, template
+      let err = mustBeEmpty("recipe", event.recipe);
+      if (err) return err;
+      err = mustBeEmpty("version_constraint", event.version_constraint);
+      if (err) return err;
+      err = mustBeEmpty("version_resolved", event.version_resolved);
+      if (err) return err;
+      err = mustBeEmpty("version_previous", event.version_previous);
+      if (err) return err;
+      if (event.is_dependency !== undefined)
+        return "is_dependency must be empty for command action";
+      err = mustBeEmpty("template", event.template);
+      if (err) return err;
+      break;
+    }
+  }
+
+  return null;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -160,43 +298,36 @@ export default {
           typeof event.action !== "string" ||
           !validActions.includes(event.action as ActionType)
         ) {
-          return new Response("Bad request", {
+          return new Response("Bad request: invalid action", {
+            status: 400,
+            headers: corsHeaders,
+          });
+        }
+
+        // Validate event fields based on action type
+        const telemetryEvent: TelemetryEvent = {
+          action: event.action as ActionType,
+          recipe: event.recipe as string | undefined,
+          version_constraint: event.version_constraint as string | undefined,
+          version_resolved: event.version_resolved as string | undefined,
+          version_previous: event.version_previous as string | undefined,
+          os: event.os as string | undefined,
+          arch: event.arch as string | undefined,
+          tsuku_version: event.tsuku_version as string | undefined,
+          is_dependency: event.is_dependency as boolean | undefined,
+          command: event.command as string | undefined,
+          flags: event.flags as string | undefined,
+          template: event.template as string | undefined,
+        };
+        const validationError = validateEvent(telemetryEvent);
+        if (validationError) {
+          return new Response(`Bad request: ${validationError}`, {
             status: 400,
             headers: corsHeaders,
           });
         }
 
         const action = event.action as ActionType;
-
-        // Validate required fields based on action type
-        switch (action) {
-          case "install":
-          case "update":
-          case "remove":
-            if (typeof event.recipe !== "string" || !event.recipe) {
-              return new Response("Bad request", {
-                status: 400,
-                headers: corsHeaders,
-              });
-            }
-            break;
-          case "create":
-            if (typeof event.template !== "string" || !event.template) {
-              return new Response("Bad request", {
-                status: 400,
-                headers: corsHeaders,
-              });
-            }
-            break;
-          case "command":
-            if (typeof event.command !== "string" || !event.command) {
-              return new Response("Bad request", {
-                status: 400,
-                headers: corsHeaders,
-              });
-            }
-            break;
-        }
 
         // Build 13-element blob array per schema
         const recipe = typeof event.recipe === "string" ? event.recipe : "";
@@ -234,7 +365,7 @@ export default {
 
         return new Response("ok", { status: 200, headers: corsHeaders });
       } catch {
-        return new Response("Bad request", {
+        return new Response("Bad request: invalid JSON", {
           status: 400,
           headers: corsHeaders,
         });
