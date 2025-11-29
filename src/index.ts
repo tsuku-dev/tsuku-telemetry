@@ -169,30 +169,33 @@ export default {
         const action = event.action as ActionType;
 
         // Validate required fields based on action type
-        // For install/update/remove: recipe is required
-        // For create: template is required
-        // For command: command is required
-        if (action === "install" || action === "update" || action === "remove") {
-          if (typeof event.recipe !== "string" || !event.recipe) {
-            return new Response("Bad request", {
-              status: 400,
-              headers: corsHeaders,
-            });
-          }
-        } else if (action === "create") {
-          if (typeof event.template !== "string" || !event.template) {
-            return new Response("Bad request", {
-              status: 400,
-              headers: corsHeaders,
-            });
-          }
-        } else if (action === "command") {
-          if (typeof event.command !== "string" || !event.command) {
-            return new Response("Bad request", {
-              status: 400,
-              headers: corsHeaders,
-            });
-          }
+        switch (action) {
+          case "install":
+          case "update":
+          case "remove":
+            if (typeof event.recipe !== "string" || !event.recipe) {
+              return new Response("Bad request", {
+                status: 400,
+                headers: corsHeaders,
+              });
+            }
+            break;
+          case "create":
+            if (typeof event.template !== "string" || !event.template) {
+              return new Response("Bad request", {
+                status: 400,
+                headers: corsHeaders,
+              });
+            }
+            break;
+          case "command":
+            if (typeof event.command !== "string" || !event.command) {
+              return new Response("Bad request", {
+                status: 400,
+                headers: corsHeaders,
+              });
+            }
+            break;
         }
 
         // Build 13-element blob array per schema
