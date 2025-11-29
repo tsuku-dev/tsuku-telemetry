@@ -4,6 +4,10 @@ export interface Env {
   CF_API_TOKEN: string;
 }
 
+const SCHEMA_VERSION = "1";
+
+type ActionType = "install" | "update" | "remove" | "create" | "command";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -55,11 +59,13 @@ interface StatsResponse {
 
 async function getStats(env: Env): Promise<StatsResponse> {
   // Query for total installs and recipe breakdown
+  // New schema: blob0=action, blob1=recipe, blob5=os, blob6=arch
   const recipeQuery = `
     SELECT blob1 as recipe,
-           sum(if(blob6 = 'install', 1, 0)) as installs,
-           sum(if(blob6 = 'update', 1, 0)) as updates
+           sum(if(blob0 = 'install', 1, 0)) as installs,
+           sum(if(blob0 = 'update', 1, 0)) as updates
     FROM tsuku_telemetry
+    WHERE blob1 != ''
     GROUP BY blob1
     ORDER BY installs DESC
     LIMIT 20
@@ -67,18 +73,18 @@ async function getStats(env: Env): Promise<StatsResponse> {
 
   // Query for OS breakdown
   const osQuery = `
-    SELECT blob3 as os, count() as count
+    SELECT blob5 as os, count() as count
     FROM tsuku_telemetry
-    WHERE blob6 = 'install'
-    GROUP BY blob3
+    WHERE blob0 = 'install'
+    GROUP BY blob5
   `;
 
   // Query for architecture breakdown
   const archQuery = `
-    SELECT blob4 as arch, count() as count
+    SELECT blob6 as arch, count() as count
     FROM tsuku_telemetry
-    WHERE blob6 = 'install'
-    GROUP BY blob4
+    WHERE blob0 = 'install'
+    GROUP BY blob6
   `;
 
   const [recipeData, osData, archData] = await Promise.all([
@@ -142,9 +148,17 @@ export default {
       try {
         const event = (await request.json()) as Record<string, unknown>;
 
+        // Validate required action field
+        const validActions: ActionType[] = [
+          "install",
+          "update",
+          "remove",
+          "create",
+          "command",
+        ];
         if (
-          typeof event.recipe !== "string" ||
-          typeof event.action !== "string"
+          typeof event.action !== "string" ||
+          !validActions.includes(event.action as ActionType)
         ) {
           return new Response("Bad request", {
             status: 400,
@@ -152,18 +166,70 @@ export default {
           });
         }
 
+        const action = event.action as ActionType;
+
+        // Validate required fields based on action type
+        switch (action) {
+          case "install":
+          case "update":
+          case "remove":
+            if (typeof event.recipe !== "string" || !event.recipe) {
+              return new Response("Bad request", {
+                status: 400,
+                headers: corsHeaders,
+              });
+            }
+            break;
+          case "create":
+            if (typeof event.template !== "string" || !event.template) {
+              return new Response("Bad request", {
+                status: 400,
+                headers: corsHeaders,
+              });
+            }
+            break;
+          case "command":
+            if (typeof event.command !== "string" || !event.command) {
+              return new Response("Bad request", {
+                status: 400,
+                headers: corsHeaders,
+              });
+            }
+            break;
+        }
+
+        // Build 13-element blob array per schema
+        const recipe = typeof event.recipe === "string" ? event.recipe : "";
+        const index =
+          action === "install" || action === "update" || action === "remove"
+            ? recipe
+            : action;
+
         env.ANALYTICS.writeDataPoint({
           blobs: [
-            event.recipe,
-            typeof event.version === "string" ? event.version : "unknown",
-            typeof event.os === "string" ? event.os : "unknown",
-            typeof event.arch === "string" ? event.arch : "unknown",
-            typeof event.tsuku_version === "string"
-              ? event.tsuku_version
-              : "unknown",
-            event.action,
+            action, // blob0: action
+            recipe, // blob1: recipe
+            typeof event.version_constraint === "string"
+              ? event.version_constraint
+              : "", // blob2
+            typeof event.version_resolved === "string"
+              ? event.version_resolved
+              : "", // blob3
+            typeof event.version_previous === "string"
+              ? event.version_previous
+              : "", // blob4
+            typeof event.os === "string" ? event.os : "", // blob5
+            typeof event.arch === "string" ? event.arch : "", // blob6
+            typeof event.tsuku_version === "string" ? event.tsuku_version : "", // blob7
+            typeof event.is_dependency === "boolean"
+              ? String(event.is_dependency)
+              : "", // blob8
+            typeof event.command === "string" ? event.command : "", // blob9
+            typeof event.flags === "string" ? event.flags : "", // blob10
+            typeof event.template === "string" ? event.template : "", // blob11
+            SCHEMA_VERSION, // blob12
           ],
-          indexes: [event.recipe],
+          indexes: [index],
         });
 
         return new Response("ok", { status: 200, headers: corsHeaders });
