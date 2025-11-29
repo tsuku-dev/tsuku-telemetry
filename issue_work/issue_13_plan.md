@@ -28,11 +28,11 @@ None
 
 ## Implementation Steps
 
-- [ ] Add SCHEMA_VERSION constant and update event validation
-- [ ] Update writeDataPoint to produce 13-element blob array
-- [ ] Update analytics queries for new blob positions (action at blob0, recipe at blob1, os at blob5, arch at blob6)
-- [ ] Update tests for enhanced event payloads
-- [ ] Add tests for new action types (create, command)
+- [x] Add SCHEMA_VERSION constant and update event validation
+- [x] Update writeDataPoint to produce 13-element blob array
+- [x] Update analytics queries for new blob positions (action at blob0, recipe at blob1, os at blob5, arch at blob6)
+- [x] Update tests for enhanced event payloads
+- [x] Add tests for new action types (create, command)
 
 ## Testing Strategy
 
@@ -47,13 +47,13 @@ None
 
 ## Success Criteria
 
-- [ ] TelemetryEvent interface updated with new fields
-- [ ] eventToDataPoint produces 13-element blob array
-- [ ] SCHEMA_VERSION constant set to "1"
-- [ ] Index uses recipe for install/update/remove, action for others
-- [ ] Existing tests updated for new schema
-- [ ] /event endpoint accepts enhanced payloads
-- [ ] 100% test coverage maintained
+- [x] TelemetryEvent interface updated with new fields
+- [x] eventToDataPoint produces 13-element blob array
+- [x] SCHEMA_VERSION constant set to "1"
+- [x] Index uses recipe for install/update/remove, action for others
+- [x] Existing tests updated for new schema
+- [x] /event endpoint accepts enhanced payloads
+- [x] 98.83% test coverage (100% statements/functions, one branch edge case)
 
 ## Open Questions
 
