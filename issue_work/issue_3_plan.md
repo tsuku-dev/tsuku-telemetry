@@ -19,17 +19,17 @@ Use Cloudflare Analytics Engine SQL API to query aggregated data. The API requir
 - `wrangler.toml` - Add environment variable bindings for API credentials
 
 ## Implementation Steps
-- [ ] Add CF_ACCOUNT_ID and CF_API_TOKEN bindings to wrangler.toml
-- [ ] Update Env interface with new bindings
-- [ ] Create queryAnalyticsEngine helper function
-- [ ] Implement /stats handler with SQL queries for:
+- [x] Add CF_ACCOUNT_ID and CF_API_TOKEN bindings to wrangler.toml
+- [x] Update Env interface with new bindings
+- [x] Create queryAnalyticsEngine helper function
+- [x] Implement /stats handler with SQL queries for:
   - Total installs (count where action = 'install')
   - Top recipes by install count
   - OS breakdown
   - Architecture breakdown
-- [ ] Return response matching DESIGN.md format
-- [ ] Add tests for response structure
-- [ ] Verify all tests pass
+- [x] Return response matching DESIGN.md format
+- [x] Add tests for response structure
+- [x] Verify all tests pass
 
 ## Analytics Engine Data Schema
 Based on writeDataPoint in index.ts:
@@ -79,14 +79,14 @@ GROUP BY blob4
 - API errors: Return 500 with error message
 
 ## Success Criteria
-- [ ] GET /stats returns JSON with all required fields
-- [ ] generated_at timestamp included
-- [ ] period field included
-- [ ] total_installs count included
-- [ ] recipes array with install/update counts
-- [ ] by_os breakdown included
-- [ ] by_arch breakdown included
-- [ ] All tests pass
+- [x] GET /stats returns JSON with all required fields
+- [x] generated_at timestamp included
+- [x] period field included
+- [x] total_installs count included
+- [x] recipes array with install/update counts
+- [x] by_os breakdown included
+- [x] by_arch breakdown included
+- [x] All tests pass
 
 ## Open Questions
 None - Analytics Engine SQL API is well documented.

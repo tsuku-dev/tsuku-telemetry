@@ -1,7 +1,16 @@
-import { describe, it, expect } from "vitest";
-import { SELF } from "cloudflare:test";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { SELF, fetchMock } from "cloudflare:test";
 
 describe("tsuku-telemetry worker", () => {
+  beforeEach(() => {
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+  });
+
+  afterEach(() => {
+    fetchMock.deactivate();
+  });
+
   describe("CORS", () => {
     it("handles OPTIONS preflight requests", async () => {
       const response = await SELF.fetch("http://localhost/event", {
@@ -29,11 +38,105 @@ describe("tsuku-telemetry worker", () => {
   });
 
   describe("GET /stats", () => {
-    it("returns empty JSON", async () => {
+    it("returns aggregated statistics", async () => {
+      // Mock the Analytics Engine API responses
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { recipe: "nodejs", installs: 100, updates: 10 },
+              { recipe: "terraform", installs: 50, updates: 5 },
+            ],
+            meta: [],
+            rows: 2,
+          })
+        )
+        .times(1);
+
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { os: "linux", count: 100 },
+              { os: "darwin", count: 50 },
+            ],
+            meta: [],
+            rows: 2,
+          })
+        )
+        .times(1);
+
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              { arch: "amd64", count: 120 },
+              { arch: "arm64", count: 30 },
+            ],
+            meta: [],
+            rows: 2,
+          })
+        )
+        .times(1);
+
       const response = await SELF.fetch("http://localhost/stats");
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("application/json");
-      expect(await response.json()).toEqual({});
+
+      const stats = (await response.json()) as {
+        generated_at: string;
+        period: string;
+        total_installs: number;
+        recipes: { name: string; installs: number; updates: number }[];
+        by_os: Record<string, number>;
+        by_arch: Record<string, number>;
+      };
+
+      expect(stats.generated_at).toBeDefined();
+      expect(stats.period).toBe("all_time");
+      expect(stats.total_installs).toBe(150);
+      expect(stats.recipes).toHaveLength(2);
+      expect(stats.recipes[0]).toEqual({
+        name: "nodejs",
+        installs: 100,
+        updates: 10,
+      });
+      expect(stats.by_os).toEqual({ linux: 100, darwin: 50 });
+      expect(stats.by_arch).toEqual({ amd64: 120, arm64: 30 });
+    });
+
+    it("returns 500 on API error", async () => {
+      fetchMock
+        .get("https://api.cloudflare.com")
+        .intercept({
+          path: /\/client\/v4\/accounts\/.*\/analytics_engine\/sql/,
+          method: "POST",
+        })
+        .reply(401, "Unauthorized");
+
+      const response = await SELF.fetch("http://localhost/stats");
+      expect(response.status).toBe(500);
+
+      const error = (await response.json()) as { error: string };
+      expect(error.error).toContain("Analytics Engine query failed");
     });
   });
 
