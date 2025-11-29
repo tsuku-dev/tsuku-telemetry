@@ -376,6 +376,118 @@ describe("tsuku-telemetry worker", () => {
       });
       expect(response.status).toBe(400);
     });
+
+    it("returns 400 for invalid action type", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe: "test", action: "invalid" }),
+      });
+      expect(response.status).toBe(400);
+    });
+
+    it("returns ok for update action", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "update",
+          version_resolved: "22.1.0",
+          version_previous: "22.0.0",
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("ok");
+    });
+
+    it("returns ok for remove action", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "remove",
+          version_previous: "22.0.0",
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("ok");
+    });
+
+    it("returns ok for create action with template", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          template: "github_release",
+          os: "linux",
+          arch: "amd64",
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("ok");
+    });
+
+    it("returns 400 for create action without template", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          os: "linux",
+        }),
+      });
+      expect(response.status).toBe(400);
+    });
+
+    it("returns ok for command action", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "command",
+          command: "list",
+          flags: "--json",
+          os: "linux",
+          arch: "amd64",
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("ok");
+    });
+
+    it("returns 400 for command action without command field", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "command",
+          os: "linux",
+        }),
+      });
+      expect(response.status).toBe(400);
+    });
+
+    it("returns ok for install with enhanced fields", async () => {
+      const response = await SELF.fetch("http://localhost/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: "nodejs",
+          action: "install",
+          version_constraint: "@LTS",
+          version_resolved: "22.0.0",
+          os: "linux",
+          arch: "amd64",
+          tsuku_version: "0.3.0",
+          is_dependency: false,
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("ok");
+    });
   });
 
   describe("unknown routes", () => {
