@@ -1,3 +1,7 @@
 name = "tsuku-telemetry"
 main = "src/index.ts"
 compatibility_date = "2024-11-27"
+
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "tsuku_telemetry"
